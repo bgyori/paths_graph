@@ -488,24 +488,29 @@ class PathsGraph(object):
         for samp_ix in range(num_samples):
             path = [self.source_node]
             current = self.source_node
+            print("Sample", samp_ix)
             while current[1] != self.target_name:
                 next = _successor_blacklist(path, current, blacklisted)
+                #print("path", path, "current", current, "blacklisted", blacklisted,
+                #      "next", next)
                 # If next is None, this means that there is no cycle-free path
                 # that passes through the current node, in which case we remove
                 # it from the path and continue
                 if next is None:
+                    #import ipdb; ipdb.set_trace()
                     path = path[:-1]
+                    tup_path = tuple(path)
                     backtrack_node = path[-1]
                     # Remember to never come here from the previous node again
                     if tup_path in blacklisted:
-                        blacklisted[tup_path].append(next)
+                        blacklisted[tup_path].append(current)
                     else:
-                        blacklisted[tup_path] = [next]
+                        blacklisted[tup_path] = [current]
                     # Now make the backtrack node the new current node
                     current = backtrack_node
                 # Otherwise we check if the node we've chosen introduces a cycle;
                 # if so, add to our blacklist then backtrack
-                if next[1] in [node[1] for node in path]:
+                elif next[1] in [node[1] for node in path]:
                     tup_path = tuple(path)
                     if tup_path in blacklisted:
                         blacklisted[tup_path].append(next)
