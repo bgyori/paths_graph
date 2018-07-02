@@ -491,13 +491,13 @@ class PathsGraph(object):
             print("Sample", samp_ix)
             while current[1] != self.target_name:
                 next = _successor_blacklist(path, current, blacklisted)
-                #print("path", path, "current", current, "blacklisted", blacklisted,
-                #      "next", next)
                 # If next is None, this means that there is no cycle-free path
                 # that passes through the current node, in which case we remove
                 # it from the path and continue
                 if next is None:
-                    #import ipdb; ipdb.set_trace()
+                    # We can pop the information for the blacklist for the full path
+                    # because we will never come here again
+                    blacklisted.pop(tuple(path))
                     path = path[:-1]
                     tup_path = tuple(path)
                     backtrack_node = path[-1]
