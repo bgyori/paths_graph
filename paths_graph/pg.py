@@ -458,6 +458,70 @@ class PathsGraph(object):
             path = tuple(path)
         return path
 
+
+    def sample_cf_paths(self, num_samples, names_only=True):
+        # First, implement sampling with backtracking
+        def _successor_blacklist(path, node, disallow_nodes):
+            if tuple(path) in disallow_nodes:
+                out_edges = [e for e in self.graph.out_edges(node, data=True)
+                             if e[1] not in disallow_nodes[tuple(path)]]
+            else:
+                out_edges = [e for e in self.graph.out_edges(node, data=True)]
+
+            if not out_edges:
+                return None
+            # For determinism in testing
+            if 'TEST_FLAG' in os.environ:
+                out_edges.sort()
+            weights = [t[2]['weight'] for t in out_edges]
+            # Normalize the weights to a proper probability distribution
+            p = np.array(weights) / np.sum(weights)
+            pred_idx = np.random.choice(len(out_edges), p=p)
+            return out_edges[pred_idx][1]
+
+        # Check to make sure we don't have an empty graph!
+        if not self.graph:
+            return tuple([])
+        # Initialize
+        paths = []
+        blacklisted = {}
+        for samp_ix in range(num_samples):
+            path = [self.source_node]
+            current = self.source_node
+            while current[1] != self.target_name:
+                next = _successor_blacklist(path, current, blacklisted)
+                # If next is None, this means that there is no cycle-free path
+                # that passes through the current node, in which case we remove
+                # it from the path and continue
+                if next is None:
+                    path = path[:-1]
+                    backtrack_node = path[-1]
+                    # Remember to never come here from the previous node again
+                    if tup_path in blacklisted:
+                        blacklisted[tup_path].append(next)
+                    else:
+                        blacklisted[tup_path] = [next]
+                    # Now make the backtrack node the new current node
+                    current = backtrack_node
+                # Otherwise we check if the node we've chosen introduces a cycle;
+                # if so, add to our blacklist then backtrack
+                if next[1] in [node[1] for node in path]:
+                    tup_path = tuple(path)
+                    if tup_path in blacklisted:
+                        blacklisted[tup_path].append(next)
+                    else:
+                        blacklisted[tup_path] = [next]
+                # If it doesn't make a cycle, then we add it to the path
+                else:
+                    path.append(next)
+                    current = next
+            if names_only:
+                path = tuple([node[1] for node in path])
+            else:
+                path = tuple(path)
+            paths.append(path)
+        return paths
+
     def _successor(self, path, node):
         out_edges = self.graph.out_edges(node, data=True)
         # For determinism in testing

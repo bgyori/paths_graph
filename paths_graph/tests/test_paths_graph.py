@@ -1,8 +1,11 @@
 import os
+import pickle
 from collections import Counter
 import numpy as np
 import networkx as nx
 from paths_graph import *
+
+#random_graph_pkl = join(dirname(__file__), 'random_graphs.pkl')
 
 source = 'A'
 target = 'D'
