@@ -488,7 +488,6 @@ class PathsGraph(object):
         for samp_ix in range(num_samples):
             path = [self.source_node]
             current = self.source_node
-            print("Sample", samp_ix)
             while current[1] != self.target_name:
                 next = _successor_blacklist(path, current, blacklisted)
                 # If next is None, this means that there is no cycle-free path
@@ -590,6 +589,22 @@ class CombinedPathsGraph(object):
             Note that the paths may not be unique.
         """
         return self._pg.sample_paths(num_samples=num_samples)
+
+    def sample_cf_paths(self, num_samples):
+        """Sample cycle-free paths from the combined paths graph.
+
+        Parameters
+        ----------
+        num_samples : int
+            The number of paths to sample.
+
+        Returns
+        -------
+        list of tuples
+            Each item in the list is a tuple of strings representing a path.
+            Note that the paths may not be unique.
+        """
+        return self._pg.sample_cf_paths(num_samples=num_samples)
 
 
 def _check_reach_depth(dir_name, reachset, length):
