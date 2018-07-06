@@ -306,15 +306,33 @@ class PathsGraph(object):
             else:
                 # Build a set representing possible edges between adjacent
                 # levels
-                possible_edges = set([(u[1], v[1]) for u, v in
-                                itertools.product(pg_nodes[i], pg_nodes[i+1])])
-                # Actual edges are the ones contained in the original graph; add
-                # to list with prepended depths
-                for u, v in possible_edges.intersection(g_edges):
-                    actual_edges.append(((i, u), (i+1, v),
-                                         {'weight': edge_weights[(u, v)]}))
+                num_possible_edges = len(pg_nodes[i]) * len(pg_nodes[i+1])
+                logger.info("%d nodes at level %d, %d nodes at level %d,"
+                            "%d possible edges" %
+                            (len(pg_nodes[i]), i, len(pg_nodes[i+1]), i+1,
+                             num_possible_edges))
+                logger.info("%d edges in graph" % len(g_edges))
+                if num_possible_edges < len(g_edges):
+                    logger.info("Enumerating possible edges")
+                    possible_edges = set([(u[1], v[1])
+                                         for u, v in
+                                         itertools.product(pg_nodes[i],
+                                                           pg_nodes[i+1])])
+                    # Actual edges are the ones contained in the original graph;
+                    # add to list with prepended depths
+                    logger.info("Enumerating actual edges")
+                    for u, v in possible_edges.intersection(g_edges):
+                        actual_edges.append(((i, u), (i+1, v),
+                                             {'weight': edge_weights[(u, v)]}))
+                else:
+                    logger.info("Enumerating edges in graph")
+                    for u, v in g_edges:
+                        if u in level[i] and v in level[i+1]:
+                            actual_edges.append(((i, u), (i+1, v),
+                                              {'weight': edge_weights[(u, v)]}))
             pg_edges.extend(actual_edges)
             logger.info("Done.")
+        logger.info("Creating graph")
         paths_graph = nx.DiGraph()
         paths_graph.add_edges_from(pg_edges)
         logger.info("Paths graph for length %d has %d nodes" %
@@ -560,6 +578,7 @@ class CombinedPathsGraph(object):
     """
     def __init__(self, pg_list):
         self.graph = nx.DiGraph()
+        self.pg_list = pg_list
         for pg in pg_list:
             self.graph.add_edges_from(pg.graph.edges(data=True))
         # Add info from the last PG in the list
@@ -606,6 +625,11 @@ class CombinedPathsGraph(object):
         """
         return self._pg.sample_cf_paths(num_samples=num_samples)
 
+    def count_paths(self):
+        total_paths = 0
+        for pg in self.pg_list:
+            total_paths += pg.count_paths()
+        return total_paths
 
 def _check_reach_depth(dir_name, reachset, length):
     depth = max(reachset.keys())
