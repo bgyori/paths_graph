@@ -447,3 +447,55 @@ def test_cf_sampling_signed():
     assert set(sample_paths) == {(('A', 0), ('B', 1), ('D', 1),
                                   ('C', 1), ('E', 1))}
 
+
+def test_cf_path_count():
+    """Tests if the cycle-free path count is updated from the blacklist."""
+    g_uns = nx.DiGraph()
+    g_uns.add_edges_from([('A', 'B'), ('A', 'C'),
+                          ('B', 'D'),
+                          ('C', 'D'), ('C', 'E'), ('C', 'F'),
+                          ('D', 'C'),
+                          ('E', 'C'), ('E', 'G'),
+                          ('G', 'F')])
+    source = 'A'
+    target = 'F'
+    length = 4
+    pg = PathsGraph.from_graph(g_uns, source, target, length)
+    sample_paths = pg.sample_cf_paths(20)
+    assert set(sample_paths) == set([('A', 'B', 'D', 'C', 'F'),
+                                     ('A', 'C', 'E', 'G', 'F')])
+    total_path_counts = pg._get_path_counts()
+    cf_counts = pg._get_cf_path_counts(total_path_counts)
+    assert cf_counts == {
+        (0, 'A'): 2,
+        (1, 'B'): 1,
+        (1, 'C'): 1,
+        (2, 'D'): 1,
+        (2, 'E'): 1,
+        (3, 'C'): 1,
+        (3, 'G'): 1,
+        (4, 'F'): 1}
+
+
+def test_cf_path_count_random():
+    num_nodes = 10
+    length = 6
+    #g = nx.erdos_renyi_graph(num_nodes, 0.5, directed=True)
+    g = nx.DiGraph()
+    g.add_edges_from([(0, 1), (0, 2), (0, 3), (0, 7), (1, 0), (1, 3), (1, 8),
+        (1, 9), (3, 0), (3, 1), (3, 2), (3, 4), (3, 5), (3, 6), (3, 7), (3, 9),
+        (4, 0), (4, 1), (4, 2), (4, 6), (4, 7), (5, 2), (5, 4), (5, 6), (5, 7),
+        (6, 0), (6, 1), (6, 2), (6, 3), (6, 4), (6, 5), (6, 7), (6, 9), (7, 4),
+        (7, 5), (7, 8), (8, 2), (8, 6), (9, 0), (9, 5), (9, 6), (9, 8)])
+    source = 0
+    target = num_nodes - 1
+    pg = PathsGraph.from_graph(g, source, target, length)
+    simple_paths = [tuple(p) for p in nx.all_simple_paths(g, source, target)
+                             if len(p) == length+1]
+    simple_path_count = len(simple_paths)
+    cf_paths = pg.sample_cf_paths(1000)
+    total_path_counts = pg._get_path_counts()
+    cf_counts = pg._get_cf_path_counts(total_path_counts)
+    assert cf_counts[pg.source_node] == simple_path_count
+    assert set(simple_paths) == set(cf_paths)
+
