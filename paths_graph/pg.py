@@ -136,6 +136,8 @@ class PathsGraph(object):
             self.target_node = (path_length, target_name)
         self.graph = graph
         self.path_length = path_length
+        # Used in cycle-free path sampling
+        self._blacklist_by_path = {}
 
     @classmethod
     def from_graph(klass, g, source, target, length, fwd_reachset=None,
@@ -377,6 +379,10 @@ class PathsGraph(object):
                             for succ in self.graph.successors(node)])
         return path_counts
 
+    def _get_cf_path_counts(self):
+        # Gets path counts using the cycle-free blacklist dict.
+        return _get_path_counts()
+
     def count_paths(self):
         """Count the total number of paths without enumerating them.
 
@@ -476,22 +482,44 @@ class PathsGraph(object):
             path = tuple(path)
         return path
 
-
     def sample_cf_paths(self, num_samples, names_only=True):
-        # First, implement sampling with backtracking
-        def _successor_blacklist(path, node, disallow_nodes):
-            if tuple(path) in disallow_nodes:
-                out_edges = [e for e in self.graph.out_edges(node, data=True)
-                             if e[1] not in disallow_nodes[tuple(path)]]
-            else:
-                out_edges = [e for e in self.graph.out_edges(node, data=True)]
+        """Sample a set of cycle-free paths from source to target.
 
+        Parameters
+        ----------
+        num_samples : int
+            The number of paths to sample.
+        names_only : boolean
+            Whether the paths should consist only of node names, or of node
+            tuples (e.g., including depth and polarity). Default is True
+            (only names).
+
+        Returns
+        -------
+        list of tuples
+            Each item in the list is a tuple of strings representing a path.
+            Note that the paths may not be unique.
+        """
+        # First, implement successor enumeration with a blacklist
+        def _successor_blacklist(path, node):
+            out_edges = []
+            weights = []
+            if tuple(path) in self._blacklist_by_path:
+                for e in self.graph.out_edges(node, data=True):
+                    if e[1] not in self._blacklist_by_path[tuple(path)]:
+                        out_edges.append(e)
+                        weights.append(e[2]['weight'])
+            else:
+                for e in self.graph.out_edges(node, data=True):
+                    out_edges.append(e)
+                    weights.append(e[2]['weight'])
+            # If there are no successors...
             if not out_edges:
                 return None
             # For determinism in testing
-            if 'TEST_FLAG' in os.environ:
-                out_edges.sort()
-            weights = [t[2]['weight'] for t in out_edges]
+            #if 'TEST_FLAG' in os.environ:
+            #    out_edges.sort()
+            #weights = [t[2]['weight'] for t in out_edges]
             # Normalize the weights to a proper probability distribution
             p = np.array(weights) / np.sum(weights)
             pred_idx = np.random.choice(len(out_edges), p=p)
@@ -502,41 +530,52 @@ class PathsGraph(object):
             return tuple([])
         # Initialize
         paths = []
-        blacklisted = {}
+        # Repeat for as many samples as we want...
         for samp_ix in range(num_samples):
+            # The path starts at the source node
             path = [self.source_node]
             current = self.source_node
+            # while we haven't reached the target...
             while current[1] != self.target_name:
-                next = _successor_blacklist(path, current, blacklisted)
-                # If next is None, this means that there is no cycle-free path
-                # that passes through the current node, in which case we remove
-                # it from the path and continue
+                # ...enumerate the allowable successors for this node
+                next = _successor_blacklist(path, current)
+                # If next is None, this means that there were no
+                # non-blacklisted successors and hence there are no cycle-free
+                # paths that pass through the current node. In this case we
+                # remove the current node from the path (effectively
+                # backtracking a level) and continue after updating the
+                # blacklist
                 if next is None:
-                    # We can pop the information for the blacklist for the full
-                    # path because we will never come here again
-                    #try:
-                    #    blacklisted.pop(tuple(path))
-                    #except KeyError:
-                    #    pass
-                    blacklisted.pop(tuple(path))
+                    # We can pop the information for the partial path from the
+                    # blacklist because we will never come here again
+                    try:
+                        self._blacklist_by_path.pop(tuple(path))
+                    except KeyError:
+                        pass
+                    # Now, backtrack by resetting the path up a level
                     path = path[:-1]
                     tup_path = tuple(path)
+                    # The node we're backtracking to is the new final node
+                    # in the path
                     backtrack_node = path[-1]
-                    # Remember to never come here from the previous node again
-                    if tup_path in blacklisted:
-                        blacklisted[tup_path].append(current)
+                    # Remember to never come to the "current" node (i.e., the
+                    # one that was the last in the path before we figured out
+                    # that it was a dead end) from the backtrack node again
+                    if tup_path in self._blacklist_by_path:
+                        self._blacklist_by_path[tup_path].append(current)
                     else:
-                        blacklisted[tup_path] = [current]
-                    # Now make the backtrack node the new current node
+                        self._blacklist_by_path[tup_path] = [current]
+                    # Now make the backtrack node the new current node and
+                    # we can proceed normally!
                     current = backtrack_node
                 # Otherwise we check if the node we've chosen introduces a
-                # cycle; if so, add to our blacklist then backtrack
-                elif next[1] in [node[1] for node in path]:
+                # cycle; if so, add to our blacklists then backtrack
+                elif next[1] in [node[1] for node in path]: # FIXME efficiency
                     tup_path = tuple(path)
-                    if tup_path in blacklisted:
-                        blacklisted[tup_path].append(next)
+                    if tup_path in self._blacklist_by_path:
+                        self._blacklist_by_path[tup_path].append(next)
                     else:
-                        blacklisted[tup_path] = [next]
+                        self._blacklist_by_path[tup_path] = [next]
                 # If it doesn't make a cycle, then we add it to the path
                 else:
                     path.append(next)
@@ -651,31 +690,5 @@ def _check_reach_depth(dir_name, reachset, length):
 class PathSamplingException(Exception):
     """Indicates a problem with sampling, e.g. a dead-end in the Pre-CFPG."""
     pass
-
-
-class PathCounter(object):
-    def __init__(self, graph, source, target):
-        self.graph = graph
-        self.source = source
-        self.target = target
-        self.path_counts = {self.target: 1}
-
-    def count_paths(self, node):
-        # Base case: we've hit a node with a known path count (this includes
-        # the target, which we initialize to 1)
-        if node in self.path_counts:
-            return self.path_counts[node]
-        # Otherwise, we iterate over the successors and add up the path
-        # counts for each one
-        else:
-            # Iterate over the dict of successors
-            counts_for_this_node = 0
-            for u in self.graph[node]:
-                counts_for_this_node += self.count_paths(u)
-            # Save the result for this node in the memo dict
-            self.path_counts[node] = counts_for_this_node
-            return counts_for_this_node
-
-
 
 
