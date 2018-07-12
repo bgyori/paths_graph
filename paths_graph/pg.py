@@ -349,7 +349,7 @@ class PathsGraph(object):
             paths = self._name_paths(paths)
         return tuple(paths)
 
-    def _get_path_counts_iter(self):
+    def _get_path_counts(self):
         """Get a dictionary giving the number of paths through each node.
 
         The entry for the source node gives the total number of paths in the
@@ -514,10 +514,10 @@ class PathsGraph(object):
                 if next is None:
                     # We can pop the information for the blacklist for the full
                     # path because we will never come here again
-                    try:
-                        blacklisted.pop(tuple(path))
-                    except KeyError:
-                        pass
+                    #try:
+                    #    blacklisted.pop(tuple(path))
+                    #except KeyError:
+                    #    pass
                     blacklisted.pop(tuple(path))
                     path = path[:-1]
                     tup_path = tuple(path)
@@ -651,4 +651,31 @@ def _check_reach_depth(dir_name, reachset, length):
 class PathSamplingException(Exception):
     """Indicates a problem with sampling, e.g. a dead-end in the Pre-CFPG."""
     pass
+
+
+class PathCounter(object):
+    def __init__(self, graph, source, target):
+        self.graph = graph
+        self.source = source
+        self.target = target
+        self.path_counts = {self.target: 1}
+
+    def count_paths(self, node):
+        # Base case: we've hit a node with a known path count (this includes
+        # the target, which we initialize to 1)
+        if node in self.path_counts:
+            return self.path_counts[node]
+        # Otherwise, we iterate over the successors and add up the path
+        # counts for each one
+        else:
+            # Iterate over the dict of successors
+            counts_for_this_node = 0
+            for u in self.graph[node]:
+                counts_for_this_node += self.count_paths(u)
+            # Save the result for this node in the memo dict
+            self.path_counts[node] = counts_for_this_node
+            return counts_for_this_node
+
+
+
 
