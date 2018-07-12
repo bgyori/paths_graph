@@ -349,7 +349,7 @@ class PathsGraph(object):
             paths = self._name_paths(paths)
         return tuple(paths)
 
-    def _get_path_counts(self):
+    def _get_path_counts_iter(self):
         """Get a dictionary giving the number of paths through each node.
 
         The entry for the source node gives the total number of paths in the
@@ -512,8 +512,12 @@ class PathsGraph(object):
                 # that passes through the current node, in which case we remove
                 # it from the path and continue
                 if next is None:
-                    # We can pop the information for the blacklist for the full path
-                    # because we will never come here again
+                    # We can pop the information for the blacklist for the full
+                    # path because we will never come here again
+                    try:
+                        blacklisted.pop(tuple(path))
+                    except KeyError:
+                        pass
                     blacklisted.pop(tuple(path))
                     path = path[:-1]
                     tup_path = tuple(path)
@@ -525,8 +529,8 @@ class PathsGraph(object):
                         blacklisted[tup_path] = [current]
                     # Now make the backtrack node the new current node
                     current = backtrack_node
-                # Otherwise we check if the node we've chosen introduces a cycle;
-                # if so, add to our blacklist then backtrack
+                # Otherwise we check if the node we've chosen introduces a
+                # cycle; if so, add to our blacklist then backtrack
                 elif next[1] in [node[1] for node in path]:
                     tup_path = tuple(path)
                     if tup_path in blacklisted:
@@ -592,6 +596,11 @@ class CombinedPathsGraph(object):
         # sampling method by composition
         self._pg = PathsGraph(pg.source_name, pg.target_name, self.graph,
                               None, pg.signed, pg.target_polarity)
+        # Override the re-appending of node polarity by PathsGraph constructor
+        self._pg.source_name = self.source_name
+        self._pg.source_node = self.source_node
+        self._pg.target_name = self.target_name
+        self._pg.target_node = self.target_node
 
     def sample_paths(self, num_samples):
         """Sample paths from the combined paths graph.
