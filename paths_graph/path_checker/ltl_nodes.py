@@ -50,10 +50,8 @@ def build_tree(formula_str, time_lim=None):
         root = GNode(time_lim, child1)
     elif first_ch == '[':
         if last_ch == ']':
-            var_id, lb, ub = fstr[1:-1].split(',')
-            lb = int(lb)
-            ub = int(ub)
-            root = AtomicNode(var_id, lb, ub)
+            node_id = fstr[1:-1]
+            root = AtomicNode(node_id)
     elif first_ch == '(':
         if last_ch == ')':
             root = build_tree(fstr[1:-1], time_lim)
