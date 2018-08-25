@@ -23,13 +23,12 @@ class HypothesisTester(object):
 
     def test(self, samples):
         logq = self.get_logq(samples)
-        print(logq)
         if logq <= self.logB:
             return 0
         elif logq >= self.logA:
             return 1
         else:
-            return -1
+            return None
 
 
 class PathChecker(object):

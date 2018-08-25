@@ -1,3 +1,4 @@
+import random
 import unittest
 from paths_graph.path_checker import PathChecker, HypothesisTester
 from paths_graph.path_checker.ltl_nodes import build_tree 
@@ -79,10 +80,40 @@ def test_path_checker_future_order():
 def test_hypothesis_tester():
     ht = HypothesisTester(0.8, 0.1, 0.1, 0.01)
     res = ht.test([True] * 10)
-    assert res == -1, res
+    assert res is None, res
     res = ht.test([True] * 100)
     assert res == 0, res
     res = ht.test([True] * 50 + [False] * 50)
     assert res == 1, res
     res = ht.test([False] * 50)
     assert res == 1, res
+
+
+def test_path_hypothesis_checking():
+    # Assume these are the paths we sampled
+    paths = [
+        [1, 2, 3, 5],
+        [1, 5, 2, 3],
+        [5, 2, 3, 4],
+        [1, 2, 3, 4],
+        [5, 2, 3, 1],
+    ]
+    # The formula we are looking for is that 5 is on the path
+    formula = 'F([5])'
+    # We set up a hypothesis test for the formula being satisfied on at least
+    # 50% of the paths
+    ht = HypothesisTester(0.5, 0.1, 0.1, 0.01)
+    samples = []
+    while True:
+        pc = PathChecker(formula)
+        path = random.choice(paths)
+        for idx, node in enumerate(path):
+            tf = pc.update(node, idx == len(path)-1)
+            if tf is not None:
+                break
+        print(path, tf)
+        samples.append(tf)
+        hyp = ht.test(samples)
+        if hyp is not None:
+            break
+    assert hyp == 0
