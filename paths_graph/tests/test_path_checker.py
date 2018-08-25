@@ -77,6 +77,28 @@ def test_path_checker_future_order():
     _run_cases(test_cases)
 
 
+def test_path_checker_online_atomic():
+    formula = '[5]'
+    pc = PathChecker(formula)
+    tf = pc.update('5', False)
+    assert tf is True, tf
+    pc = PathChecker(formula)
+    tf = pc.update('4', True)
+    assert tf is False, tf
+
+
+def test_path_checker_online_future():
+    formula = 'F([5])'
+    pc = PathChecker(formula)
+    tf = pc.update('5', False)
+    assert tf is True, tf
+    pc = PathChecker(formula)
+    tf = pc.update('4', False)
+    assert tf is None, tf
+    tf = pc.update('5', True)
+    assert tf is True, tf
+
+
 def test_hypothesis_tester():
     ht = HypothesisTester(0.8, 0.1, 0.1, 0.01)
     res = ht.test([True] * 10)
@@ -92,11 +114,11 @@ def test_hypothesis_tester():
 def test_path_hypothesis_checking():
     # Assume these are the paths we sampled
     paths = [
-        [1, 2, 3, 5],
-        [1, 5, 2, 3],
-        [5, 2, 3, 4],
-        [1, 2, 3, 4],
-        [5, 2, 3, 1],
+        ['1', '2', '3', '5'],
+        ['1', '5', '2', '3'],
+        ['5', '2', '3', '4'],
+        ['1', '2', '3', '4'],
+        ['5', '2', '3', '1'],
     ]
     # The formula we are looking for is that 5 is on the path
     formula = 'F([5])'
