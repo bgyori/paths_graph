@@ -1,5 +1,7 @@
 import random
 import unittest
+import networkx as nx
+from paths_graph import PathsGraph
 from paths_graph.path_checker import PathChecker, HypothesisTester
 from paths_graph.path_checker.ltl_nodes import build_tree 
 
@@ -111,7 +113,44 @@ def test_hypothesis_tester():
     assert res == 1, res
 
 
-def test_path_hypothesis_checking():
+def test_pg_hypothesis_checking_batch():
+    g_uns = nx.DiGraph()
+    g_uns.add_edges_from((('A', 'B'), ('A', 'C'), ('C', 'D'), ('B', 'D'),
+                          ('D', 'B'), ('D', 'C'), ('B', 'E'), ('C', 'E')))
+    # For reference, these are the paths in this graph
+    # [('A', 'B', 'D', 'B', 'E'),
+    #  ('A', 'B', 'D', 'C', 'E'),
+    #  ('A', 'C', 'D', 'B', 'E'),
+    #  ('A', 'C', 'D', 'C', 'E')])
+    # with 3 of them containing 'B' and one not containing 'B'
+    source, target, length = ('A', 'E', 4)
+    pg = PathsGraph.from_graph(g_uns, source, target, length)
+
+    # We want to check that B is on the path somewhere
+    formula = 'F([B])'
+    # We set up a hypothesis test saying that we want to verify that
+    # the formula is True with at least 0.2 probability (i.e. the probability
+    # that a randomly samples path satisfies the formula). We allow
+    # a Type-I error rate of 0.1 and Type-II error rate of 0.1, and use
+    # a 0.01 indifference parameter around the value 0.2.
+    ht = HypothesisTester(0.2, 0.1, 0.1, 0.01)
+    # We next sample paths one by one until we can decide the hypothesis test
+    samples = []
+    while True:
+        # Sample one path
+        path = pg.sample_paths(1)[0]
+        # Verify the path
+        pc = PathChecker(formula, path)
+        samples.append(pc.truth)
+        # Check if the samples so far are sufficient to decide the hypothesis
+        # and stop sampling if they are
+        hyp = ht.test(samples)
+        if hyp is not None:
+            break
+    assert hyp == 0
+
+
+def test_path_hypothesis_checking_online():
     # Assume these are the paths we sampled
     paths = [
         ['1', '2', '3', '5'],
@@ -139,3 +178,5 @@ def test_path_hypothesis_checking():
         if hyp is not None:
             break
     assert hyp == 0
+
+
