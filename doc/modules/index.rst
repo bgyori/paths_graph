@@ -9,3 +9,4 @@ Paths Graph module reference
    pre_cfpg
    cfpg
    paths_tree
+   path_checker
