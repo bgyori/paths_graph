@@ -1,1 +1,1 @@
-from .path_checker import PathChecker
+from .path_checker import PathChecker, HypothesisTester

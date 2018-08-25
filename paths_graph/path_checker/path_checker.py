@@ -1,4 +1,35 @@
+import numpy
 from .ltl_nodes import build_tree
+
+
+class HypothesisTester(object):
+    def __init__(self, prob, alpha, beta, delta):
+        self.prob = prob
+        self.alpha = alpha
+        self.beta = beta
+        self.delta = delta
+        self.logA = numpy.log((1 - self.beta) / self.alpha)
+        self.logB = numpy.log(self.beta / (1 - self.alpha))
+
+    def get_logq(self, samples):
+        ps = len([s for s in samples if s])
+        ns = len(samples) - ps
+        term1 = ps * numpy.log(self.prob - self.delta)
+        term2 = ns * numpy.log(1 - (self.prob - self.delta))
+        term3 = ps * numpy.log(self.prob + self.delta)
+        term4 = ns * numpy.log(1 - (self.prob + self.delta))
+        logq = term1 + term2 - term3 - term4
+        return logq
+
+    def test(self, samples):
+        logq = self.get_logq(samples)
+        print(logq)
+        if logq <= self.logB:
+            return 0
+        elif logq >= self.logA:
+            return 1
+        else:
+            return -1
 
 
 class PathChecker(object):

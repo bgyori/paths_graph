@@ -1,5 +1,5 @@
 import unittest
-from paths_graph.path_checker import PathChecker
+from paths_graph.path_checker import PathChecker, HypothesisTester
 from paths_graph.path_checker.ltl_nodes import build_tree 
 
 
@@ -62,6 +62,7 @@ def test_path_checker_global():
                   (formula, ['5', '5'], True)]
     _run_cases(test_cases)
 
+
 @unittest.skip('skip since formula parser can\'t handle this yet')
 def test_path_checker_future_order():
     formula = 'F([4]&F([5]))'
@@ -73,3 +74,15 @@ def test_path_checker_future_order():
                   (formula, ['2', '4', '6', '5', '8'], True),
                   (formula, ['4', '5'], True)]
     _run_cases(test_cases)
+
+
+def test_hypothesis_tester():
+    ht = HypothesisTester(0.8, 0.1, 0.1, 0.01)
+    res = ht.test([True] * 10)
+    assert res == -1, res
+    res = ht.test([True] * 100)
+    assert res == 0, res
+    res = ht.test([True] * 50 + [False] * 50)
+    assert res == 1, res
+    res = ht.test([False] * 50)
+    assert res == 1, res
